@@ -1,5 +1,11 @@
 package connectbox
 
+// List of XML RPC setter function codes.
+const (
+	FnLogin  = "15"
+	FnLogout = "16"
+)
+
 // List of XML RPC getter function codes.
 const (
 	FnGlobalSettings          = "1"
