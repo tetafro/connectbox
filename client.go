@@ -25,8 +25,8 @@ const (
 	xmlSetter = "/xml/setter.xml"
 )
 
-// ConnectBox is a client for ConnectBox HTTP API.
-type ConnectBox struct {
+// Client is a client for Client HTTP API.
+type Client struct {
 	http     *http.Client
 	addr     string
 	token    string
@@ -34,8 +34,8 @@ type ConnectBox struct {
 	password string
 }
 
-// NewConnectBox creates new ConnectBox client.
-func NewConnectBox(addr, username, password string) (*ConnectBox, error) {
+// NewClient creates new ConnectBox client.
+func NewClient(addr, username, password string) (*Client, error) {
 	if !strings.HasPrefix(addr, "http") {
 		addr = "http://" + addr
 	}
@@ -45,7 +45,7 @@ func NewConnectBox(addr, username, password string) (*ConnectBox, error) {
 		return nil, fmt.Errorf("invalid address: %s", addr)
 	}
 
-	z := ConnectBox{
+	z := Client{
 		addr:     strings.TrimSuffix(addr, "/"),
 		username: username,
 		password: hashPassword(password),
@@ -68,7 +68,7 @@ func NewConnectBox(addr, username, password string) (*ConnectBox, error) {
 
 // Login gets auth token and session ID for further interactions
 // with ConnectBox.
-func (z *ConnectBox) Login(ctx context.Context) error {
+func (z *Client) Login(ctx context.Context) error {
 	// Send a request just to set initial token
 	_, err := z.get(ctx, "/common_page/login.html")
 	if err != nil {
@@ -108,14 +108,14 @@ func (z *ConnectBox) Login(ctx context.Context) error {
 
 // Logout closes current session. This is important because ConnectBox
 // is a single user device.
-func (z *ConnectBox) Logout(ctx context.Context) error {
+func (z *Client) Logout(ctx context.Context) error {
 	_, err := z.xmlRequest(ctx, xmlSetter, FnLogout, xmlArgs{})
 	return err
 }
 
 // Get sends a request to getter.xml endpoint with `fn` function code, and
 // unmarshals the result into `out` variable.
-func (z *ConnectBox) Get(ctx context.Context, fn string, out any) error {
+func (z *Client) Get(ctx context.Context, fn string, out any) error {
 	resp, err := z.xmlRequest(ctx, xmlGetter, fn, xmlArgs{})
 	if err != nil {
 		return fmt.Errorf("get response: %w", err)
@@ -126,7 +126,7 @@ func (z *ConnectBox) Get(ctx context.Context, fn string, out any) error {
 	return nil
 }
 
-func (z *ConnectBox) getCookie(name string) string {
+func (z *Client) getCookie(name string) string {
 	u, _ := url.Parse(z.addr)
 	for _, cookie := range z.http.Jar.Cookies(u) {
 		if cookie.Name == name {
@@ -136,12 +136,12 @@ func (z *ConnectBox) getCookie(name string) string {
 	return ""
 }
 
-func (z *ConnectBox) setCookie(name, value string) {
+func (z *Client) setCookie(name, value string) {
 	u, _ := url.Parse(z.addr)
 	z.http.Jar.SetCookies(u, []*http.Cookie{{Name: name, Value: value}})
 }
 
-func (z *ConnectBox) xmlRequest(
+func (z *Client) xmlRequest(
 	ctx context.Context,
 	path string,
 	fn string,
@@ -155,7 +155,7 @@ func (z *ConnectBox) xmlRequest(
 	return z.post(ctx, path, args.Encode())
 }
 
-func (z *ConnectBox) get(ctx context.Context, path string) (string, error) {
+func (z *Client) get(ctx context.Context, path string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, z.addr+path, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -181,7 +181,7 @@ func (z *ConnectBox) get(ctx context.Context, path string) (string, error) {
 	return string(body), nil
 }
 
-func (z *ConnectBox) post(ctx context.Context, path, data string) (string, error) {
+func (z *Client) post(ctx context.Context, path, data string) (string, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,

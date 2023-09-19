@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewConnectBox(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		client, err := NewConnectBox("127.0.0.1:8080", "bob", "qwerty")
+		client, err := NewClient("127.0.0.1:8080", "bob", "qwerty")
 		require.NoError(t, err)
 		require.Equal(t, "http://127.0.0.1:8080", client.addr)
 		require.Equal(t, "bob", client.username)
@@ -22,12 +22,12 @@ func TestNewConnectBox(t *testing.T) {
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
-		_, err := NewConnectBox("hello, world!", "bob", "qwerty")
+		_, err := NewClient("hello, world!", "bob", "qwerty")
 		require.ErrorContains(t, err, "invalid address")
 	})
 }
 
-func TestConnectBox_Logout(t *testing.T) {
+func TestClient_Logout(t *testing.T) {
 	ctx := context.Background()
 
 	connectbox := testConnectBox{
@@ -36,7 +36,7 @@ func TestConnectBox_Logout(t *testing.T) {
 	server := httptest.NewServer(&connectbox)
 	defer server.Close()
 
-	client, err := NewConnectBox(server.URL, "bob", "qwerty")
+	client, err := NewClient(server.URL, "bob", "qwerty")
 	require.NoError(t, err)
 	client.token = "abc"
 
@@ -47,7 +47,7 @@ func TestConnectBox_Logout(t *testing.T) {
 	require.Equal(t, want, connectbox.req)
 }
 
-func TestConnectBox_Get(t *testing.T) {
+func TestClient_Get(t *testing.T) {
 	t.Run("valid response", func(t *testing.T) {
 		ctx := context.Background()
 
@@ -58,7 +58,7 @@ func TestConnectBox_Get(t *testing.T) {
 		server := httptest.NewServer(&connectbox)
 		defer server.Close()
 
-		client, err := NewConnectBox(server.URL, "bob", "qwerty")
+		client, err := NewClient(server.URL, "bob", "qwerty")
 		require.NoError(t, err)
 		client.token = "abc"
 
@@ -81,7 +81,7 @@ func TestConnectBox_Get(t *testing.T) {
 		server := httptest.NewServer(&connectbox)
 		defer server.Close()
 
-		client, err := NewConnectBox(server.URL, "bob", "qwerty")
+		client, err := NewClient(server.URL, "bob", "qwerty")
 		require.NoError(t, err)
 		client.token = "abc"
 
@@ -93,7 +93,7 @@ func TestConnectBox_Get(t *testing.T) {
 	})
 }
 
-func TestConnectBox_xmlRequest(t *testing.T) {
+func TestClient_xmlRequest(t *testing.T) {
 	t.Run("valid response", func(t *testing.T) {
 		ctx := context.Background()
 
@@ -105,7 +105,7 @@ func TestConnectBox_xmlRequest(t *testing.T) {
 		server := httptest.NewServer(&connectbox)
 		defer server.Close()
 
-		client, err := NewConnectBox(server.URL, "bob", "qwerty")
+		client, err := NewClient(server.URL, "bob", "qwerty")
 		require.NoError(t, err)
 		client.token = "abc"
 
@@ -129,7 +129,7 @@ func TestConnectBox_xmlRequest(t *testing.T) {
 		server := httptest.NewServer(&connectbox)
 		defer server.Close()
 
-		client, err := NewConnectBox(server.URL, "bob", "qwerty")
+		client, err := NewClient(server.URL, "bob", "qwerty")
 		require.NoError(t, err)
 		client.token = "abc"
 
@@ -139,7 +139,7 @@ func TestConnectBox_xmlRequest(t *testing.T) {
 	})
 }
 
-func TestConnectBox_get(t *testing.T) {
+func TestClient_get(t *testing.T) {
 	ctx := context.Background()
 
 	connectbox := testConnectBox{
@@ -150,7 +150,7 @@ func TestConnectBox_get(t *testing.T) {
 	server := httptest.NewServer(&connectbox)
 	defer server.Close()
 
-	client, err := NewConnectBox(server.URL, "bob", "qwerty")
+	client, err := NewClient(server.URL, "bob", "qwerty")
 	require.NoError(t, err)
 	client.token = "abc"
 

@@ -11,7 +11,9 @@ Netherlands.
 ## Example
 
 ```go
-client, err := NewConnectBox("http://192.168.178.1", "NULL", "password")
+import "github.com/tetafro/connectbox"
+
+client, err := connectbox.NewClient("http://192.168.178.1", "NULL", "password")
 if err != nil {
     log.Fatalf("Failed to init ConnectBox client: %v", err)
 }
