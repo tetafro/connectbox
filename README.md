@@ -23,7 +23,7 @@ if err := client.Login(ctx); err != nil {
 }
 
 var data CMSystemInfo
-err := client.GetMetrics(ctx, FnCMSystemInfo, &data)
+err := client.Get(ctx, FnCMSystemInfo, &data)
 if err != nil {
     log.Fatalf("Failed to get CMSystemInfo: %v", err)
 }
