@@ -1,3 +1,4 @@
+// Package connectbox provides an HTTP client for ConnectBox routers.
 package connectbox
 
 import (
