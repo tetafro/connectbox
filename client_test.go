@@ -2,9 +2,7 @@ package connectbox
 
 import (
 	"context"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/h2non/gock"
@@ -71,162 +69,205 @@ func TestClient_Login(t *testing.T) {
 		err = client.Login(context.Background())
 		require.ErrorContains(t, err, "get initial token")
 	})
+
+	t.Run("failed xml request", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Get(loginPage).
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token1; Path=/")
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			MatchHeader("Cookie", "sessionToken=token1").
+			BodyString("token=token1&fun=15&Username=bob&Password=" +
+				"65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5").
+			Reply(http.StatusInternalServerError)
+
+		err = client.Login(context.Background())
+		require.ErrorContains(t, err, "xml request")
+	})
+
+	t.Run("error response", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Get(loginPage).
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token1; Path=/")
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			MatchHeader("Cookie", "sessionToken=token1").
+			BodyString("token=token1&fun=15&Username=bob&Password="+
+				"65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5").
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token2; Path=/").
+			BodyString("fail")
+
+		err = client.Login(context.Background())
+		require.ErrorContains(t, err, "invalid response")
+	})
+
+	t.Run("missing sid in response", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Get(loginPage).
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token1; Path=/")
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			MatchHeader("Cookie", "sessionToken=token1").
+			BodyString("token=token1&fun=15&Username=bob&Password="+
+				"65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5").
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token2; Path=/").
+			BodyString("success;key1=value1;key2=value2")
+
+		err = client.Login(context.Background())
+		require.ErrorContains(t, err, "missing SID")
+	})
+
+	t.Run("wrong address", func(t *testing.T) {
+		client, err := NewClient("http://127.0.0.100", "bob", "qwerty")
+		require.NoError(t, err)
+
+		err = client.Login(context.Background())
+		require.ErrorContains(t, err, "connection refused")
+	})
 }
 
 func TestClient_Logout(t *testing.T) {
-	ctx := context.Background()
+	t.Run("success", func(t *testing.T) {
+		defer gock.Off()
 
-	connectbox := testConnectBox{
-		status: http.StatusOK,
-	}
-	server := httptest.NewServer(&connectbox)
-	defer server.Close()
-
-	client, err := NewClient(server.URL, "bob", "qwerty")
-	require.NoError(t, err)
-	client.token = "abc"
-
-	err = client.Logout(ctx)
-	require.NoError(t, err)
-
-	want := "token=abc&fun=16"
-	require.Equal(t, want, connectbox.req)
-}
-
-func TestClient_Get(t *testing.T) {
-	t.Run("valid response", func(t *testing.T) {
-		ctx := context.Background()
-
-		connectbox := testConnectBox{
-			status: http.StatusOK,
-			resp:   `<?xml version="1.0"?><root><field>50</field></root>`,
-		}
-		server := httptest.NewServer(&connectbox)
-		defer server.Close()
-
-		client, err := NewClient(server.URL, "bob", "qwerty")
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
 		require.NoError(t, err)
-		client.token = "abc"
+		client.token = "token1"
 
-		var data struct {
-			Field string `xml:"field"`
-		}
-		err = client.Get(ctx, "100", &data)
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			BodyString("token=token1&fun=16").
+			Reply(http.StatusOK)
+
+		err = client.Logout(context.Background())
 		require.NoError(t, err)
-		require.Equal(t, "token=abc&fun=100", connectbox.req)
-		require.Equal(t, "50", data.Field)
 	})
 
-	t.Run("invalid response", func(t *testing.T) {
-		ctx := context.Background()
+	t.Run("fail", func(t *testing.T) {
+		defer gock.Off()
 
-		connectbox := testConnectBox{
-			status: http.StatusOK,
-			resp:   `<?xml`,
-		}
-		server := httptest.NewServer(&connectbox)
-		defer server.Close()
-
-		client, err := NewClient(server.URL, "bob", "qwerty")
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
 		require.NoError(t, err)
-		client.token = "abc"
+		client.token = "token1"
 
-		var data struct {
-			Field string `xml:"field"`
-		}
-		err = client.Get(ctx, "100", &data)
-		require.ErrorContains(t, err, "unmarshal response")
-	})
-}
+		gock.InterceptClient(client.http)
 
-func TestClient_xmlRequest(t *testing.T) {
-	t.Run("valid response", func(t *testing.T) {
-		ctx := context.Background()
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			BodyString("token=token1&fun=16").
+			Reply(http.StatusInternalServerError)
 
-		connectbox := testConnectBox{
-			cookies: map[string]string{"token": "def"},
-			status:  http.StatusOK,
-			resp:    "hello, world",
-		}
-		server := httptest.NewServer(&connectbox)
-		defer server.Close()
-
-		client, err := NewClient(server.URL, "bob", "qwerty")
-		require.NoError(t, err)
-		client.token = "abc"
-
-		args := xmlArgs{{"key", "value"}}
-		resp, err := client.xmlRequest(ctx, "/test", "100", args)
-		require.NoError(t, err)
-
-		want := "token=abc&fun=100&key=value"
-		require.Equal(t, want, connectbox.req)
-		want = "hello, world"
-		require.Equal(t, want, resp)
-		require.Equal(t, "def", client.getCookie("token"))
-	})
-
-	t.Run("invalid status code", func(t *testing.T) {
-		ctx := context.Background()
-
-		connectbox := testConnectBox{
-			status: http.StatusInternalServerError,
-		}
-		server := httptest.NewServer(&connectbox)
-		defer server.Close()
-
-		client, err := NewClient(server.URL, "bob", "qwerty")
-		require.NoError(t, err)
-		client.token = "abc"
-
-		args := xmlArgs{{"key", "value"}}
-		_, err = client.xmlRequest(ctx, "/test", "100", args)
+		err = client.Logout(context.Background())
 		require.ErrorContains(t, err, "invalid response status")
 	})
 }
 
-func TestClient_get(t *testing.T) {
-	ctx := context.Background()
+func TestClient_Get(t *testing.T) {
+	t.Run("valid response", func(t *testing.T) {
+		defer gock.Off()
 
-	connectbox := testConnectBox{
-		cookies: map[string]string{"token": "def"},
-		status:  http.StatusOK,
-		resp:    "hello, world",
-	}
-	server := httptest.NewServer(&connectbox)
-	defer server.Close()
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+		client.token = "token1"
 
-	client, err := NewClient(server.URL, "bob", "qwerty")
-	require.NoError(t, err)
-	client.token = "abc"
+		gock.InterceptClient(client.http)
 
-	resp, err := client.get(ctx, "/test")
-	require.NoError(t, err)
-	require.Equal(t, "hello, world", resp)
-	require.Equal(t, "def", client.getCookie("token"))
-}
+		gock.New("http://127.0.0.1").
+			Post(xmlGetter).
+			BodyString("token=token1&fun=999").
+			Reply(http.StatusOK).
+			BodyString(`<?xml version="1.0"?><root><field>50</field></root>`)
 
-type testConnectBox struct {
-	// Save input data
-	path string
-	req  string
-	// Respond with provided data
-	cookies map[string]string
-	status  int
-	resp    string
-}
+		var data struct {
+			Field string `xml:"field"`
+		}
+		err = client.Get(context.Background(), "999", &data)
+		require.NoError(t, err)
+		require.Equal(t, "50", data.Field)
+	})
 
-func (t *testConnectBox) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Save input data
-	t.path = r.URL.Path
-	body, err := io.ReadAll(r.Body)
-	if err == nil {
-		t.req = string(body)
-	}
-	// Respond with provided data
-	for name, val := range t.cookies {
-		http.SetCookie(w, &http.Cookie{Name: name, Value: val})
-	}
-	w.WriteHeader(t.status)
-	w.Write([]byte(t.resp))
+	t.Run("invalid xml in response", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+		client.token = "token1"
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Post(xmlGetter).
+			BodyString("token=token1&fun=999").
+			Reply(http.StatusOK).
+			BodyString("<?xml")
+
+		var data struct {
+			Field string `xml:"field"`
+		}
+		err = client.Get(context.Background(), "999", &data)
+		require.ErrorContains(t, err, "unmarshal response")
+	})
+
+	t.Run("error response code", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+		client.token = "token1"
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Post(xmlGetter).
+			BodyString("token=token1&fun=999").
+			Reply(http.StatusInternalServerError)
+
+		var data struct {
+			Field string `xml:"field"`
+		}
+		err = client.Get(context.Background(), "999", &data)
+		require.ErrorContains(t, err, "invalid response status")
+	})
+
+	t.Run("wrong address", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.100", "bob", "qwerty")
+		require.NoError(t, err)
+		client.token = "token1"
+
+		var data struct {
+			Field string `xml:"field"`
+		}
+		err = client.Get(context.Background(), "999", &data)
+		require.ErrorContains(t, err, "connection refused")
+	})
 }
