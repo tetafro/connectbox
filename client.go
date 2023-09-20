@@ -21,6 +21,7 @@ const (
 
 // List of XML API endpoints.
 const (
+	loginPage = "/common_page/login.html"
 	xmlGetter = "/xml/getter.xml"
 	xmlSetter = "/xml/setter.xml"
 )
@@ -70,7 +71,7 @@ func NewClient(addr, username, password string) (*Client, error) {
 // with ConnectBox.
 func (z *Client) Login(ctx context.Context) error {
 	// Send a request just to set initial token
-	_, err := z.get(ctx, "/common_page/login.html")
+	_, err := z.get(ctx, loginPage)
 	if err != nil {
 		return fmt.Errorf("get initial token: %w", err)
 	}
