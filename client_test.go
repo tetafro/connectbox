@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,6 +25,51 @@ func TestNewClient(t *testing.T) {
 	t.Run("invalid address", func(t *testing.T) {
 		_, err := NewClient("hello, world!", "bob", "qwerty")
 		require.ErrorContains(t, err, "invalid address")
+	})
+}
+
+func TestClient_Login(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Get(loginPage).
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token1; Path=/")
+		gock.New("http://127.0.0.1").
+			Post(xmlSetter).
+			MatchHeader("Cookie", "sessionToken=token1").
+			BodyString("token=token1&fun=15&Username=bob&Password="+
+				"65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5").
+			Reply(http.StatusOK).
+			AddHeader("Set-Cookie", "sessionToken=token2; Path=/").
+			BodyString("success;SID=sid1")
+
+		err = client.Login(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "token2", client.getCookie(sessionTokenName))
+		require.Equal(t, "sid1", client.getCookie(sessionIDName))
+	})
+
+	t.Run("failed to get initial token", func(t *testing.T) {
+		defer gock.Off()
+
+		client, err := NewClient("http://127.0.0.1", "bob", "qwerty")
+		require.NoError(t, err)
+
+		gock.InterceptClient(client.http)
+
+		gock.New("http://127.0.0.1").
+			Get(loginPage).
+			Reply(http.StatusInternalServerError)
+
+		err = client.Login(context.Background())
+		require.ErrorContains(t, err, "get initial token")
 	})
 }
 
