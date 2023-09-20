@@ -82,7 +82,7 @@ func (z *Client) Login(ctx context.Context) error {
 	}
 	resp, err := z.xmlRequest(ctx, xmlSetter, FnLogin, args)
 	if err != nil {
-		return fmt.Errorf("send request: %w", err)
+		return fmt.Errorf("xml request: %w", err)
 	}
 	if !strings.HasPrefix(resp, "success") {
 		return fmt.Errorf("invalid response: %s", resp)
@@ -100,7 +100,7 @@ func (z *Client) Login(ctx context.Context) error {
 		}
 	}
 	if sid == "" {
-		return fmt.Errorf("no SID in response from router: %s", resp)
+		return fmt.Errorf("missing SID: %s", resp)
 	}
 	z.setCookie(sessionIDName, sid)
 
